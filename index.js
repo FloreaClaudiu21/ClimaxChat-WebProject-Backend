@@ -1,13 +1,22 @@
 const http = require('http')
-const dotenv = require('dotenv')
-const server = http.createServer()
+const cors = require('cors')
 const app = require('express')
-const express = require('express')()
-const { Server } = require('engine.io')
+const dotenv = require('dotenv')
+const { Server } = require('socket.io')
 
 dotenv.config()
-express.use(app.json())
+const express = app()
+
+require('./firebase')
 const PORT = process.env.PORT || 5000
+const server = http.createServer(express)
+const {main_router, users_router} = require("./routes/api")
+
+
+express.use(cors())
+express.use(app.json())
+express.use("/api", main_router)
+
 const io = new Server(server, {
     cors: {
         origin: "*",
@@ -17,7 +26,6 @@ const io = new Server(server, {
 
 io.on("connection", (socket) => {
     console.log(socket.id)
-    console.log(socket.PORT)
 })
 
 server.listen(PORT, () => {
