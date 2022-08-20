@@ -3,6 +3,7 @@ const cors = require('cors')
 const app = require('express')
 const dotenv = require('dotenv')
 const { Server } = require('socket.io')
+const bodyParser = require('body-parser')
 
 dotenv.config()
 const express = app()
@@ -14,7 +15,8 @@ const {main_router, users_router} = require("./routes/api")
 
 
 express.use(cors())
-express.use(app.json())
+express.use(bodyParser.json())
+express.use(bodyParser.urlencoded({ extended: true }))
 express.use("/api", main_router)
 
 const io = new Server(server, {

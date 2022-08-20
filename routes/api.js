@@ -1,8 +1,6 @@
 const app = require('express')
 const main_router = app.Router()
 const paths = ["users", "user", "groups", "group", "chats", "chat"]
-const {user_route} = require('./user/user')
-const {users_route} = require("./users/users")
 
 main_router.all("/:path", (req, res) => {
     const {apikey} = req.query
@@ -18,6 +16,10 @@ main_router.all("/:path", (req, res) => {
     req.next()
     return
 })
+
+// ROUTES
+const {user_route} = require('./user/user')
+const {users_route} = require("./users/users")
 
 main_router.use("/user", user_route)
 main_router.use("/users", users_route)

@@ -1,11 +1,7 @@
 const express = require('express')
+const {isEmpty} = require('../utils')
 const {UsersDB, Firestore} = require('../../firebase')
 const user_route = express.Router()
-
-// CHECK IF THE VALUE EXISTS
-const isEmpty = (val) => {
-    return (val === undefined || val == null || val.length <= 0) ? true : false;
-}
 
 // VALIDATE THE EMAIL ADDRESS
 const validateEmail = (email) => {
@@ -30,80 +26,95 @@ user_route.all("/", (req, res, next) => {
 // CHECK OR GET USER DATA TO THE DATABASE
 user_route.get("/", async (req, res) => {
     const { mode, id, email } = req.query
-    if (isEmpty(mode)) {
-        res.status(500).json({error: "Please specify the action mode [check, get]."})
-        return
-    }
-    const action = String(mode).toLowerCase()
-    /////////////////////////////////////////
-    switch (action) {
-        case "check":
-            const id_d = await UsersDB.where('uid', "==", id).get() 
-            const email_d = await UsersDB.where("email", "==", email).get()
-            if (!id_d.empty || !email_d.empty) {
-                res.status(500).json({error: "Email or UUID already exists in the database."})
+    try {
+        if (isEmpty(mode)) {
+            res.status(500).json({error: "Please specify the action mode [check, get]."})
+            return
+        }
+        const action = String(mode).toLowerCase()
+        /////////////////////////////////////////
+        switch (action) {
+            case "check":
+                const id_d = await UsersDB.where('uid', "==", id).get() 
+                const email_d = await UsersDB.where("email", "==", email).get()
+                if (!id_d.empty || !email_d.empty) {
+                    res.status(400).json({error: "Email or UUID already exists in the database."})
+                    break
+                }
+                res.status(200).json({success: "Seems fine! The user does not exist in the database."})
                 break
-            }
-            res.status(200).json({success: "Seems fine! The user does not exist in the database."})
-            break
-        case "get":
-            const user = UsersDB.where('uid', "==", id)
-            try {
+            case "get":
+                const user = UsersDB.where('uid', "==", id)
                 const udata = await user.get()
                 res.status(200).json({success: { user: udata.docs[0].data()}})
                 break
-            } catch(e) {
-                res.status(500).json({error: e.message})
+            default:
+                res.status(404).json({error: "Invalid action mode."})
                 break
-            }
-        default:
-            res.status(404).json({error: "Invalid action mode."})
-            break
+        } 
+    } catch(e) {
+        res.status(500).json({error: e.message})
+        return
     }
 })
 
 // CREATE OR UPDATE THE USER DATA TO THE DATABASE
 user_route.post("/", async (req, res) => {
-    const { mode, id, email, username, photo, data } = req.query
-    if (isEmpty(mode)) {
-        res.status(500).json({error: "Please specify the action mode [create, update]."})
-        return
-    }
-    const action = String(mode).toLowerCase()
-    /////////////////////////////////////////
-    switch (action) {
-        case "create":
-            const user = await UsersDB.add({
-                uid: id,
-                email: email,
-                username: username ? username : "",
-                photo: photo ? photo : "",
-                online: false,
-                sendRequests: [{}],
-                receivedRequests: [{}],
-                chats: [{}],
-                groups: [{}],
-                blockedusers: []
-            })
-            res.status(200).json({success: { user: (await user.get()).data() }})
-            break
-        case "update":
-            try {
+    const { mode, id, email, photo, data } = req.query
+    try {
+        if (isEmpty(mode)) {
+            res.status(500).json({error: "Please specify the action mode [create, update]."})
+            return
+        }
+        const action = String(mode).toLowerCase()
+        /////////////////////////////////////////
+        switch (action) {
+            case "create":
+                let Jdata1 = null
+                if (!isEmpty(data)) {
+                    Jdata1 = JSON.parse(data)
+                    if (typeof Jdata1 !== "object") {
+                        res.status(500).json({error: "Invalid json data."})
+                        break
+                    }
+                }
+                const user = await UsersDB.add({
+                    uid: id,
+                    email: email,
+                    photo: photo ? photo : "",
+                    online: Jdata1.online,
+                    sendRequests: [],
+                    receivedRequests: [],
+                    chats: [],
+                    groups: [],
+                    blockedusers: []
+                })
+                res.status(200).json({success: { user: (await user.get()).data() }})
+                break
+            case "update":
                 const Jdata = JSON.parse(data)
                 if (typeof Jdata !== "object") {
                     res.status(500).json({error: "Invalid json data."})
                     break
                 }
-                const doc = await UsersDB.doc(id).update(Jdata)
-                res.status(200).json({success: doc})
+                let list = []
+                const docs = await UsersDB.where("uid", "==", id).get()
+                await Promise.all(docs.docs.map(async (d) => {
+                    let doc = UsersDB.doc(d.id)
+                    await doc.update(Jdata)
+                    let datad = await doc.get()
+                    list.push(datad.data())
+                })).then(() => {
+                    res.status(200).json({success: list})
+                })
                 break
-            } catch(e) {
-                res.status(500).json({error: e.message})
+            default:
+                res.status(404).json({error: "Invalid action mode."})
                 break
-            }
-        default:
-            res.status(404).json({error: "Invalid action mode."})
-            break
+        }
+    } catch(e) {
+        res.status(500).json({error: e.lineNumber})
+        return
     }
 })
 
