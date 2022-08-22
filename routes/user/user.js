@@ -78,7 +78,7 @@ user_route.post("/", async (req, res) => {
                         break
                     }
                 }
-                const user = await UsersDB.add({
+                await UsersDB.add({
                     uid: id,
                     email: email,
                     photo: photo ? photo : "",
@@ -88,8 +88,11 @@ user_route.post("/", async (req, res) => {
                     chats: [],
                     groups: [],
                     blockedusers: []
-                })
-                res.status(200).json({success: { user: (await user.get()).data() }})
+                }).then((usera) =>
+                    usera.get().then((d) => {
+                        res.status(200).json({success: { user: d.data() }})
+                    })
+                )
                 break
             case "update":
                 const Jdata = JSON.parse(data)
@@ -106,7 +109,7 @@ user_route.post("/", async (req, res) => {
                     list.push(datad.data())
                 })).then(() => {
                     res.status(200).json({success: list})
-                })
+                }).catch((e) => console.log(e))
                 break
             default:
                 res.status(404).json({error: "Invalid action mode."})
